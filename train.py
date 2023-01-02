@@ -7,7 +7,7 @@ from torch.optim import SGD, Adam, RMSprop
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 from torchinfo import summary
-from utils.utils import *
+import utils
 
 local_rank = 0
 world_size = 0
@@ -34,7 +34,7 @@ accdet_list = []
 acccls_list = []
 result = './timestep_' + str(time_slot) + '/'
 if __name__ == '__main__':
-    check_folder(result)
+    utils.AddFunc.check_folder(result)
 
     if torch.cuda.is_available():
         torch.cuda.set_device(local_rank)

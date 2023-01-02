@@ -1,14 +1,35 @@
-import torch
-import torchdata.datapipes.iter
 from torchdata.datapipes import functional_datapipe
 from torchdata.datapipes.iter import FileLister, Mapper, Filter, FileOpener, IterDataPipe, CSVDictParser
 import numpy as np
-# mps_device = torch.device("mps")
-import os
+import utils
 
-count = 0
-def filter_for_data(filename):
-    return filename.endswith(".csv")
+
+class MultiEMG:
+    def __init__(self):
+        None
+
+    def row_processer(self, row: list) -> dict:
+        """
+        :param row:
+        :return: label: [gt] data: [0:3]
+        """
+        label = np.array(row[0], np.int32)  # 64
+        labels = np.reshape(np.eye(4)[label.astype(np.int32)], (64, 4))  # time_slot, cls -> one-hot encoding
+        return {"label": labels.astype(np.float32), "data": np.array(row[1], dtype=np.float32)}
+
+    def emg_dataset(self, root_dir: str = "./data/train/", window_size: int = 64, step: int = 1) -> Mapper:
+        """
+        :param root_dir: data location
+        :param window_size:
+        :param step:
+        :return: Mapper(label: [gt] data: [0:3])
+        """
+        dp = FileLister(root_dir)
+        dp = Filter(dp, filter_fn=utils.AddFunc.filter_for_data())
+        dp = FileOpener(dp, mode='rt')
+        dp = dp.parse_csv(delimiter=",", skip_lines=1)
+        dp = dp.rolling(window_size, step)
+        return Mapper(dp, self.row_processer)
 
 
 @functional_datapipe("rolling")
@@ -40,61 +61,14 @@ class RollingWindow(IterDataPipe):
                 return
 
 
-def row_processer(row):
-    label = np.array(row[0], np.int32)  # 64
-    labels = np.reshape(np.eye(4)[label.astype(np.int32)],(64, 4)) # time_slot, cls -> one-hot encoding
-    return {"label": labels.astype(np.float32), "data":np.array(row[1], dtype = np.float32)}
-
-
-def emg_dataset(root_dir="./data/train/",window_size:int = 64, step:int = 1):
-    """
-    :param root_dir: data location
-    :return: label: [gt] data: [0:3]
-    """
-
-    dp = FileLister(root_dir)
-    dp = Filter(dp, filter_fn=filter_for_data)
-    dp = FileOpener(dp, mode='rt')
-    dp = dp.parse_csv(delimiter=",", skip_lines=1)
-    dp = dp.rolling(window_size, step)
-    return Mapper(dp, row_processer)
-
-
-# class EMGDataset(torchdata.datapipes.iter.IterDataPipe):
-#     def __init__(self, root:str = "./data/data/train", window_size:int = 64, step:int = 1):
-#         super(EMGDataset, self).__init__()
-#         self.root = root
-#         self.window_size = window_size
-#         self.step = step
-#
-#     def __iter__(self):
-#         dp = FileLister(self.root)
-#         dp = Filter(dp, filter_fn = filter_for_data)
-#         dp = FileOpener(dp, mode = 'rt')
-#         dp = dp.parse_csv(delimiter = ",", skip_lines = 1)
-#         dp = dp.rolling(self.window_size, self.step)
-#         dp = dp.map(row_processer)
-#         return dp
-#
-#     def __len__(self):
-#         return {"train": 49080, "test": 6135}
-
 
 
 if __name__ == '__main__':
     from torch.utils.data import DataLoader, BatchSampler
     FOLDER = f"./data/train"
-    datapipe = emg_dataset("../data/train", 64, 1)
-
-    for i, data in enumerate(datapipe):
-        c = i
-    print(c)
+    datapipe = MultiEMG.emg_dataset("../data/train", 64, 1)
+    print(len(list(enumerate(datapipe))))
     # breakpoint()
     # datapipe2 = EMGDataset("./data/data/train", 64, 1)
     dl = DataLoader(dataset=datapipe, batch_size=32, num_workers=1,)
-    for i, data in enumerate(dl):
-        # print(f'Labels batch shape: {data["label"]}{data["label"].size()}\n')
-        # print(f'Feature batch shape:{data["data"]}{data["data"].size()}\n')
-        count = i
-
-    print(count)
+    print(len(list(enumerate(dl))))
