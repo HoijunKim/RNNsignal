@@ -1,19 +1,13 @@
-from math import ceil
 from torchmetrics import Accuracy
-from Dataset import emg_dataset
-from model import ClickNet, Model
-import os
-import torch
+from datasets.Dataset import emg_dataset
+from models.RnnNet import Model
 import torch.nn as nn
 import torch.distributed
 from torch.optim import SGD, Adam, RMSprop
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 from torchinfo import summary
-
-def check_file(path):
-    if not os.path.exists(path):
-        os.makedirs(path)
+from utils.utils import *
 
 local_rank = 0
 world_size = 0
@@ -21,7 +15,7 @@ depth = 4
 batch = 32
 time_slot = 64
 shuffle = True
-num_worker = 4
+num_worker = 1
 pin = True
 prefetch = 2
 persistent = True
@@ -39,8 +33,9 @@ loss_list = []
 accdet_list = []
 acccls_list = []
 result = './timestep_' + str(time_slot) + '/'
-check_file(result)
 if __name__ == '__main__':
+    check_folder(result)
+
     if torch.cuda.is_available():
         torch.cuda.set_device(local_rank)
         device = torch.device(f'cuda', local_rank)
@@ -48,15 +43,14 @@ if __name__ == '__main__':
         device = torch.device(f'mps', local_rank)
     else:
         device = torch.device(f'cpu')
-    print(device)
+
     accuracy = Accuracy(task="multiclass", num_classes=4)
-    # 2. dataloader
-    # device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
-    train = emg_dataset("./class3/train", window_size=time_slot, step=1)  # 49080
-    test = emg_dataset("./class3/test", window_size=time_slot, step=1)  # 6135
+
+    train = emg_dataset("data/train", window_size=time_slot, step=1)
+    test = emg_dataset("data/test", window_size=time_slot, step=1)
     trainset = DataLoader(dataset=train, batch_size=batch, shuffle=shuffle, num_workers=num_worker,
                           pin_memory=pin, prefetch_factor=prefetch, persistent_workers=persistent)
-    nb = len(list(enumerate(trainset)))
+
     model = Model(batch, depth, num_classes).to(device)
 
     if opt == f'SGD':
@@ -75,7 +69,7 @@ if __name__ == '__main__':
     for epoch in tqdm(range(start_epoch, end_epochs), desc=f'Epoch', disable=False):
         model.train()
         print(f'{"Gpu_mem":10s} {"total":>10s} ')
-        pbar = tqdm(enumerate(trainset), total=nb, desc=f'batch', leave=True, disable=False)
+        pbar = tqdm(enumerate(trainset), total=len(list(enumerate(trainset))), desc=f'batch', leave=True, disable=False)
         for batch_idx, (features) in pbar:
             targets, data = features["label"].to(device), features["data"].to(device)
             optimizer.zero_grad(set_to_none=True)

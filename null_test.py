@@ -2,7 +2,7 @@ import pandas as pd
 import numpy as np
 import os
 
-dir_path = './class3/train/'
+dir_path = 'data/train/'
 dir_list = os.listdir(dir_path)
 sum_zero = 0
 for i, j in enumerate(dir_list):
