@@ -15,6 +15,7 @@ world_size = 0
 depth = 4
 batch = 32
 time_slot = 64
+channel = 1
 shuffle = True
 num_worker = 1
 pin = True
@@ -35,6 +36,8 @@ accdet_list = []
 acccls_list = []
 result = './timestep_' + str(time_slot) + '/'
 check_folder(result)
+
+
 if __name__ == '__main__':
     if torch.cuda.is_available():
         torch.cuda.set_device(local_rank)
@@ -47,11 +50,14 @@ if __name__ == '__main__':
     accuracy = Accuracy(task="multiclass", num_classes=4)
     # 2. dataloader
     # device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
-    train = emg_dataset(data_dir="./data/train", window_size=time_slot, step=1)  # 49080
-    test = emg_dataset(data_dir='./data/test', window_size=time_slot, step=1)  # 6135
+    train = emg_dataset(data_dir="./emg_data/train", window_size=time_slot, channel=channel, step=1)  # 49080
+    test = emg_dataset(data_dir='./emg_data/test', window_size=time_slot, channel=channel, step=1)  # 6135
     trainset = DataLoader(dataset=train, batch_size=batch, shuffle=shuffle, num_workers=num_worker,
                           pin_memory=pin, prefetch_factor=prefetch, persistent_workers=persistent)
     nb = len(list(enumerate(trainset)))
+    # hl = list(enumerate(trainset))
+    # print(hl[0])
+    # breakpoint()
     model = Model(batch, depth, num_classes).to(device)
 
     if opt == f'SGD':

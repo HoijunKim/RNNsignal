@@ -1,9 +1,9 @@
 from torchdata.datapipes import functional_datapipe
 from torchdata.datapipes.iter import FileLister, Mapper, Filter, FileOpener, IterDataPipe
 import numpy as np
-from utils import row_processor, filter_for_data
+from datasets.utils import row_processor, filter_for_data
 
-def emg_dataset(data_dir: str = "./data/train/", window_size: int = 64, step: int = 1):
+def emg_dataset(data_dir: str = "./data/train/", window_size: int = 64, channel: int = 1, step: int = 1):
     """
     :param data_dir: data location
     :param window_size:
@@ -14,16 +14,17 @@ def emg_dataset(data_dir: str = "./data/train/", window_size: int = 64, step: in
     dp = Filter(dp, filter_fn=filter_for_data)
     dp = FileOpener(dp, mode='rt')
     dp = dp.parse_csv(delimiter=",", skip_lines=1)
-    dp = dp.rolling(window_size, step)
+    dp = dp.rolling(window_size, channel, step)
     return Mapper(dp, row_processor)
 
 
 @functional_datapipe("rolling")
 class RollingWindow(IterDataPipe):
-    def __init__(self, source_dp: IterDataPipe, window_size: int = 64, step: int = 1):
+    def __init__(self, source_dp: IterDataPipe, window_size: int = 64, channel: int = 1, step: int = 1):
         super().__init__()
         self.source_dp = source_dp
         self.window_size = window_size
+        self.channel = channel
         self.step = step
 
     def __iter__(self):
@@ -34,7 +35,7 @@ class RollingWindow(IterDataPipe):
                 while len(label) < self.window_size:
                     a = next(it)
                     label.append(a[-1])
-                    data.append(a[0:3])
+                    data.append(a[0:self.channel]) # EMG Channel Num
                 yield np.array(label), np.array(data)  # torch.tensor ?
                 for _ in range(self.step):
                     if label:
@@ -50,7 +51,7 @@ if __name__ == '__main__':
     from torch.utils.data import DataLoader
 
     FOLDER = f"./data/train"
-    datapipe = emg_dataset("../data/train", 64, 1)
+    datapipe = emg_dataset("../data/train", 64, 1, 1)
     print(len(list(enumerate(datapipe))))
     dl = DataLoader(dataset=datapipe, batch_size=32, num_workers=1,)
     print(len(list(enumerate(dl))))
