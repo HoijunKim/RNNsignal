@@ -1,19 +1,18 @@
 from torchmetrics import Accuracy
 from datasets.Dataset import emg_dataset
 from models.RnnNet import Model
-import torch.nn as nn
 import torch.distributed
 from torch.optim import SGD, Adam, RMSprop
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 from torchinfo import summary
 from utils.AddFunc import check_folder
-
+import time
 
 local_rank = 0
 world_size = 0
 depth = 4
-batch = 32
+batch = 1
 time_slot = 64
 channel = 1
 shuffle = True
@@ -50,7 +49,7 @@ if __name__ == '__main__':
     accuracy = Accuracy(task="multiclass", num_classes=4)
     # 2. dataloader
     # device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
-    test = emg_dataset(data_dir='./emg_data/test', window_size=time_slot, channel=channel, step=32)  # 6135
+    test = emg_dataset(data_dir='./emg_data/test', window_size=time_slot, channel=channel, step=64)  # 6135
     testset = DataLoader(dataset=test, batch_size=batch, num_workers=num_worker,
                           pin_memory=pin, prefetch_factor=prefetch, persistent_workers=persistent)
     nb = len(list(enumerate(testset)))
@@ -71,13 +70,17 @@ if __name__ == '__main__':
     print(f'{"Gpu_mem":10s} {"total":>10s} ')
     pbar = tqdm(enumerate(testset), total=nb, desc=f'batch', leave=True, disable=False)
     for batch_idx, (features) in pbar:
+        st = time.time()
         targets, data = features["label"].to(device), features["data"].to(device)
         optimizer.zero_grad(set_to_none=True)
         with torch.cuda.amp.autocast(enabled=amp):
             output = model(data)
+            cls_out = torch.argmax(output, dim=2)
             # acces = accuracy(output, targets)
         mem = '%.3gG' % (torch.cuda.memory_reserved() / 1E9 if torch.cuda.is_available() else 0)
         s = f'{mem:10s}'
         pbar.set_description(s)
-        print(output.shape)
-
+        # print(output[0])
+        # print(cls_out[0])
+        # print(cls_out.shape)
+        print(time.time() - st)

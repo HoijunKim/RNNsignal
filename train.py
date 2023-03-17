@@ -58,7 +58,7 @@ if __name__ == '__main__':
     # hl = list(enumerate(trainset))
     # print(hl[0])
     # breakpoint()
-    model = Model(batch, depth, num_classes).to(device)
+    model = Model(time_slot, depth, num_classes, channel).to(device)
 
     if opt == f'SGD':
         optimizer = SGD(model.parameters(), lr=learning_rate, momentum=momentums, weight_decay=weight_dc)
@@ -91,4 +91,4 @@ if __name__ == '__main__':
             s = f'{mem:10s} {losses.mean():10.6g}'
             pbar.set_description(s)
 
-    torch.save(model.state_dict(), f'result'+'.pt')
+    torch.save(model.state_dict(), f'result2'+'.pt')
