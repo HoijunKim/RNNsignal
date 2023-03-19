@@ -14,13 +14,19 @@ class Model(nn.Module):
                            num_layers=1, bidirectional=False)
         self.GRU5 = nn.GRU(input_size=time_slot, hidden_size=int(time_slot/2), batch_first=False,
                            num_layers=depth, bidirectional=True)
+        self.Dense1000 = nn.Linear(time_slot, 1000)
+        self.Dense64 = nn.Linear(1000, time_slot)
+        self.DROP = nn.Dropout(0.5)
         self.CLS = nn.Linear(time_slot, num_class)
         self.SOFT = nn.Softmax(dim=2)
 
     def forward(self, x) -> torch.tensor:
         x,_ = self.GRU1(x)
         x_gru, _ = self.GRU5(x)
-        x_cls = self.CLS(x_gru)
+        x_den = self.Dense1000(x_gru)
+        x_den = self.DROP(x_den)
+        x_den = self.Dense64(x_den)
+        x_cls = self.CLS(x_den)
         x_return = self.SOFT(x_cls)
         return x_return
 

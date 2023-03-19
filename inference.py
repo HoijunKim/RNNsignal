@@ -54,28 +54,21 @@ if __name__ == '__main__':
                           pin_memory=pin, prefetch_factor=prefetch, persistent_workers=persistent)
     nb = len(list(enumerate(testset)))
 
-    model = Model(batch, depth, num_classes).to(device)
-
-    if opt == f'SGD':
-        optimizer = SGD(model.parameters(), lr=learning_rate, momentum=momentums, weight_decay=weight_dc)
-    elif opt == f'Adam':
-        optimizer = Adam(model.parameters(), lr=learning_rate)
-    elif opt == f'RMSProp':
-        optimizer = RMSprop(model.parameters(), lr=learning_rate)
-    else:
-        print(f"Opt error !!")
-        breakpoint()
-
+    model = Model(time_slot, depth, num_classes).to(device)
+    model.load_state_dict(torch.load('result2.pt'))
     summary(model,size=(batch,time_slot,4),)
     print(f'{"Gpu_mem":10s} {"total":>10s} ')
     pbar = tqdm(enumerate(testset), total=nb, desc=f'batch', leave=True, disable=False)
     for batch_idx, (features) in pbar:
         st = time.time()
         targets, data = features["label"].to(device), features["data"].to(device)
-        optimizer.zero_grad(set_to_none=True)
         with torch.cuda.amp.autocast(enabled=amp):
             output = model(data)
             cls_out = torch.argmax(output, dim=2)
+            cls_gt = torch.argmax(targets, dim=2)
+        print(cls_out)
+        print(cls_gt)
+        print('======================================')
             # acces = accuracy(output, targets)
         mem = '%.3gG' % (torch.cuda.memory_reserved() / 1E9 if torch.cuda.is_available() else 0)
         s = f'{mem:10s}'

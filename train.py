@@ -42,12 +42,13 @@ if __name__ == '__main__':
     if torch.cuda.is_available():
         torch.cuda.set_device(local_rank)
         device = torch.device(f'cuda', local_rank)
+        torch.backends.cudnn.benchmark = True
     elif torch.backends.mps.is_available():
         device = torch.device(f'mps', local_rank)
     else:
         device = torch.device(f'cpu')
     print(device)
-    accuracy = Accuracy(task="multiclass", num_classes=4)
+    accuracy = Accuracy(task="multiclass", num_classes=4).to(device)
     # 2. dataloader
     # device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
     train = emg_dataset(data_dir="./emg_data/train", window_size=time_slot, channel=channel, step=1)  # 49080
@@ -83,12 +84,12 @@ if __name__ == '__main__':
             with torch.cuda.amp.autocast(enabled=amp):
                 output = model(data)
                 losses = criterion(output, targets)
-                # acces = accuracy(output, targets)
+                accuracy.update(torch.argmax(output, dim=2), torch.argmax(targets, dim=2))
             scaler.scale(losses).backward()
             scaler.step(optimizer)
             scaler.update()
             mem = '%.3gG' % (torch.cuda.memory_reserved() / 1E9 if torch.cuda.is_available() else 0)
-            s = f'{mem:10s} {losses.mean():10.6g}'
+            s = f'{mem:10s} {losses.mean():10.6g} {accuracy.compute()}'
             pbar.set_description(s)
 
-    torch.save(model.state_dict(), f'result2'+'.pt')
+    torch.save(model.state_dict(), f'result3'+'.pt')
